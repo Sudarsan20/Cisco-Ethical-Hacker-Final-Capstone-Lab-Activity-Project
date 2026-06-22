@@ -1,82 +1,137 @@
-# Cisco Ethical Hacker - Final Capstone Activity Write-Up
+# Cisco Ethical Hacker - Final Skills Assessment Capstone Write-Up
 
 🛡️ **Verified Certification:** [![Cisco Ethical Hacker Badge](https://img.shields.io/badge/Credly-Verified_Badge-007A87?style=flat&logo=credly&logoColor=white)](https://www.credly.com/badges/1dc6334e-82fb-44e0-aa82-c08afed5a2e6)
 
 ## 🎖️ Certification Project Overview
-This repository contains the walkthrough and write-up for the **Final Capstone Activity** of the Cisco Ethical Hacker course. Having successfully passed this capstone and earned my certification, this documentation acts as a detailed breakdown of the methodologies, penetration testing steps, and remediation processes applied during the lab assessment.
-
-### 🌐 Scenario / Background
-I was tasked to conduct a simulated penetration test for a corporate network environment. The target networks involved hosts residing within the **10.6.6.0/24** and **172.17.0.0/24** ranges. The main objective was to discover vulnerabilities, execute successful exploits, capture flags/codes, and document strict mitigation and remediation protocols to protect the affected systems.
+This repository contains the comprehensive walkthrough, core methodologies, and exact terminal commands executed during the **Cisco Ethical Hacker Skills Assessment Capstone**. Having completed the practical hands-on evaluation and earned my certification, this documentation serves as a portfolio write-up demonstrating entry-level proficiency across web application exploitation, network scanning, credential auditing, and packet analysis.
 
 ---
 
 ## 🛠️ Challenge 1: SQL Injection & Password Cracking
-**Objective:** Exploit a web application input field using SQL injection techniques to harvest system credentials, crack a specific user hash (**Gordon Brown**), and pivot to a separate target machine.
+**Objective:** Leverage a SQL Injection (SQLi) flaw inside a target web platform to exfiltrate password hashes, perform an offline brute-force attack against a cryptographic string, and pivot into a separate target machine via SSH.
 
 ### Step-by-Step Execution
-1. **Target Access & Setup:** * Formed a connection to the target web application interface hosting the Damn Vulnerable Web Application (DVWA) at `http://10.6.6.100`.
-   * Authenticated using initial credentials (`admin / password`) and initialized the environment by adjusting the security level profile to **Low**.
-2. **Vulnerability Assessment & Injection:**
-   * Enumerated the platform for parameterized inputs and discovered a vulnerable text field susceptible to **SQL Injection (SQLi)**.
-   * Injected payload logic to extract hidden backend database components (tables, schemas, columns) containing credential databases.
-   * Successfully retrieved user records, isolating **Gordon Brown's** username and corresponding password hash value.
-3. **Password Cracking:**
-   * Inputted the collected cryptographic hash into offline cracking utilities (e.g., John the Ripper or Hashcat) alongside wordlist dictionaries to successfully crack the plaintext password.
-4. **Pivoting & Flag Extraction:**
-   * Leveraged the recovered plaintext credentials of Gordon Brown to authenticate onto the system located at network endpoint `172.17.0.2`.
-   * Identified and unsealed the primary challenge file to extract the hidden confirmation code flag.
+1. **Target Web Authentication & Scope Realignment:**
+   * Navigated to the staging web app environment at `http://10.6.6.100`.
+   * Logged in using initial default administrative privileges: 
+     * **Username:** `admin`
+     * **Password:** `password`
+   * Navigated to the security options tab and set the internal **DVWA Security** profiling tier to **Low**.
 
-### 🛡️ Remediation Strategy
-* **Prepared Statements:** Standardize the use of Parameterized Queries (Prepared Statements) for all SQL interactions to prevent runtime code misinterpretation.
-* **Input Validation & Sanitization:** Enforce rigid server-side data allow-lists to block irregular payload syntax characters (such as `'`, `--`, `UNION`).
+2. **Database Infiltration via SQL Injection Payload:**
+   * Switched over to the designated **SQL Injection** sub-pane.
+   * Injected the following database union logic string directly into the query submission box to pull hidden authentication elements:
+     ```sql
+     1' OR 1=1 UNION SELECT user, password FROM users #
+     ```
+   * Captured the raw MD5 password hash linked to system user **Gordon Brown (`gordonb`)**.
+
+3. **Offline Cryptographic Hash Cracking:**
+   * Saved the extracted MD5 hash string (`e99a18c428cb38d5f260853678922e03`) onto the local Kali machine filesystem:
+     ```bash
+     echo e99a18c428cb38d5f260853678922e03 > passwd.txt
+     ```
+   * Used John the Ripper to break the MD5 hash using standard wordlist rules:
+     ```bash
+     john --format=raw-md5 passwd.txt
+     ```
+
+4. **Network Pivot and Flag Exfiltration:**
+   * Utilized the cracked plaintext credentials to establish an encrypted shell instance onto the isolated local target host at `172.17.0.2`:
+     ```bash
+     ssh gordonb@172.17.0.2
+     ```
+   * Explored the landing path directory, located the challenge document, and read the token payload:
+     ```bash
+     ls
+     cat hkxisx.txt
+     ```
+   * **Retrieved Challenge Code:** `4E9f12`
 
 ---
 
-## 📂 Challenge 2: Information Disclosure via Directory Listing
-**Objective:** Perform reconnaissance against the target network structure to identify data disclosure points via unprotected file indexing structures.
+## 📂 Challenge 2: Web Server Vulnerabilities (Directory Listing)
+**Objective:** Probe server environments for structural misconfigurations exposing restricted internal index branches or developer web sheets.
 
 ### Step-by-Step Execution
-1. **Directory Enumeration:**
-   * Utilized asset discovery scanners or manual URL profiling to identify directory indexing vulnerabilities on the application server.
-   * Leveraged improper configurations allowing full visualization of directory roots containing core programming structures.
-2. **Flag Retrieval:**
-   * Navigated the exposed files system hierarchy to pin down the filename handling the explicit **Challenge 2** script.
-   * Evaluated the underlying codebase assets to extract the hidden segment logic.
+1. **Server-Side Structural Enumeration:**
+   * Launched an automated web security analyzer scan against the primary web host IP address (`10.6.6.100`) to uncover hidden directories or unprotected indexes:
+     ```bash
+     nikto -h 10.6.6.100
+     ```
+   * The utility successfully detected an open directory indexing configuration.
 
-### 🛡️ Remediation Strategy
-* **Disable Directory Indexing:** Modify the webserver master configuration files (e.g., `Options -Indexes` in Apache `httpd.conf` or removing directory browsing configs in Nginx/IIS) to prevent automated directory parsing.
-* **Implement Index Catchers:** Deploy default, non-disclosing structural endpoints (such as blank or generic redirect `index.html` files) in asset folders.
+2. **Exposed Directory Traversal:**
+   * Appended the discovered document indexing directory segment within the browser bar: `10.6.6.100/docs`.
+   * Traversed the open structural file views, discovered the hidden utility form component named `user_form.html`, and loaded it to capture the embedded challenge flag.
 
 ---
 
-## 🖥️ Challenge 3: SMB Share Vulnerability Exploitation
-**Objective:** Profile a network node running Server Message Block (SMB) services to look for loose structural accesses and extract target files.
+## 🖥️ Challenge 3: Exploiting Loose SMB Server Shares
+**Objective:** Map an active Local Area Network (LAN) subnet block, discover machines operating Server Message Block (SMB) protocols, and access open shares to pull sensitive business files.
 
 ### Step-by-Step Execution
-1. **Network Profiling & Enumeration:**
-   * Ran targeted SMB inspection tools (such as `smbclient`, `enum4linux`, or Nmap SMB scripts) to systematically inventory accessible network resource paths.
-   * Checked for unauthenticated or NULL session capabilities against the network endpoint.
-2. **Exploiting Lax Configurations:**
-   * Discovered loose shares that allowed connection read-rights without providing valid corporate credentials.
-   * Connected directly to the public share path, traversed directory structures, and located and downloaded hidden challenge data artifacts.
+1. **Network Discovery & Target Mapping:**
+   * Initiated an active ping scan and port discovery sweep across the entire local subnet workspace block (`10.6.6.0/24`) to pinpoint targets running file-sharing listener ports:
+     ```bash
+     nmap 10.6.6.0/24
+     ```
+   * Identified target machine `10.6.6.23` listening on active network sharing channels.
 
-### 🛡️ Remediation Strategy
-* **Disable Anonymous Sessions:** Enforce complete restriction of Null Sessions and Anonymous access across the SMB server registry configurations.
-* **Access Control Lists (ACLs):** Restrict sharing permissions to explicit authenticated groups, block SMB traffic across untrusted border barriers using local firewalls, and force the implementation of newer, encrypted versions of the protocol (SMBv3).
+2. **SMB Share Mapping:**
+   * Leveraged specific share enumeration tools to discover file paths that permit unauthenticated or anonymous user connections:
+     ```bash
+     enum4linux -S 10.6.6.23
+     ```
+   * *Alternative Verification Script:*
+     ```bash
+     nmap -sV --script=smb-enum-shares 10.6.6.23
+     ```
+
+3. **Anonymous Extraction Connection:**
+   * Connected directly to the target machine's open share endpoint via the native Linux SMB client framework:
+     ```bash
+     smbclient //10.6.6.23/print$
+     ```
+   * Provided the system profile password string `kali` when requested by the runtime handler to successfully pass anonymous authentication.
+   * Executed remote file system commands to locate and download the hidden financial data record:
+     ```smb
+     ls
+     cd OTHER
+     get taxes.txt
+     exit
+     ```
+   * Opened the document locally to retrieve the verification flag content:
+     ```bash
+     cat taxes.txt
+     ```
 
 ---
 
-## 🔒 Post-Exploitation & Final File Protection Recommendations
-To guarantee a solid defense-in-depth security structure across all completed lab environments and prevent unauthorized entities from looking into sensitive target records, the following standard methodologies were documented:
+## 🔍 Challenge 4: Forensic Packet Analysis (PCAP)
+**Objective:** Triage raw network packet capture logs to map malicious communication strings and discover target asset files hidden across unencrypted channels.
 
-1. **Robust Role-Based Access Controls (RBAC):** Restrict system file access using rigorous operating system permissions (e.g., strict Linux `chmod` profiles or Windows NTFS ACLs) to verify that only authorized identities can interact with target files.
-2. **Data-at-Rest Encryption:** Apply strong standard encryption mechanisms (such as AES-256 file/folder protection frameworks) to protect critical data payloads. Even if directory traversal or storage exfiltration occurs, raw contents remain unreadable without appropriate cryptographic material.
+### Step-by-Step Execution
+1. **Deep Packet Analysis & Stream Triage:**
+   * Initialized the Wireshark GUI tool interface to load and analyze the captured data packet trail (`.pcap`) file artifact located on the workspace disk path:
+     ```bash
+     wireshark /home/kali/OTHER/SA.pcap
+     ```
+   * Handled sequence filtering across unencrypted protocols to isolate the specific network system IP address destination alongside specific URL parameters handling file movements.
+
+2. **Payload Retrieval:**
+   * Discovered the critical server target IP address and path link from the streams: `http://10.6.6.14/data/accounts.xml`.
+   * Interrogated that exact structured web asset path inside the browser client.
+   * **Flag Isolation:** Inspected the structured XML code blocks to locate the required validation token within the `<Signature>` markup string tied directly to the employee listing block `ID="0"`.
 
 ---
-### ⚙️ Technologies & Tooling Profiled
-* **Reconnaissance & Scan Engines:** Nmap, Directory Enumeration Utilities
-* **Database Exploitation:** SQL Injection Payload Implementation
-* **Credential Recovery:** Hashcat / John the Ripper
-* **Network & File Systems Protocol Handlers:** SMB Client Tools, Web Browser Dev Panels
 
-*Disclaimer: This write-up represents a completed exercise conducted solely inside a controlled network simulation environment for academic validation purposes.*
+### 🧰 Tools and Commands Cheat Sheet
+* **Network Reconnaissance:** `nmap`, `enum4linux`
+* **Web Directory Vulnerability Checkers:** `nikto`
+* **Credential Recovery Frameworks:** `john` (John the Ripper)
+* **Remote Terminal & Protocol Handlers:** `ssh`, `smbclient`
+* **Network Forensics Engine:** `wireshark`
+
+---
+*Disclaimer: All processes and actions documented in this repository were executed solely inside an isolated, authorized academic training sandbox provided by Cisco Systems. No production environments were harmed.*
